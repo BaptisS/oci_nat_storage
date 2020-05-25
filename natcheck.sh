@@ -1,0 +1,41 @@
+#!/bin/bash
+cd /home/opc/
+
+#Retrieve up-to-date OCI Object Storage endpoint address list for specific region (ie. eu-frankfurt-1) . 
+rm -f public_ip_ranges.json
+wget https://docs.cloud.oracle.com/iaas/tools/public_ip_ranges.json
+REGCIDR=$(cat public_ip_ranges.json | jq '.regions[] | select(.region == "eu-frankfurt-1")')
+REGOBJCIDR=$(echo $REGCIDR | jq '.cidrs[] | select(.tags[] == "OBJECT_STORAGE") | .cidr')
+
+#Read current ip from file (/home/opc/curip) 
+cur_ip=$(cat curip)
+
+#Check if current ip is still part of Object Storage endpoint CIDR in the selected region.
+cidr_clean=$(for cidr in $REGOBJCIDR; do echo $cidr|sed 's/"//g' ; done)
+rm -f status
+for cidr in $cidr_clean; do ./netmask.sh $cidr | grep $cur_ip; echo $? >> status; done
+cat status | grep 0
+matchstatus=$(echo $?)
+if [ $matchstatus = 0 ]
+
+then
+#Current IP address is still in Object Storage CIDR. Do nothing.
+        curtime=$(date) 
+        echo $curtime "- No change detected" >> /home/opc/log.txt
+
+else
+#Current Ip is not anymore in the curent Object Storage CIDR. Resolve object storage name to get fresh IP and update Firewalld configuration. 
+        curtime=$(date)
+        echo $curtime "- Object Storage endpoint update detected" >> /home/opc/log.txt
+newip=$(dig +short objectstorage.eu-frankfurt-1.oraclecloud.com. | awk '{line = $0} END {print line}')
+echo The new Object Storage IP is : $newip >> /home/opc/log.txt
+echo $newip > newip
+echo Current $cur_ip >> /home/opc/log.txt
+echo New $newip >> /home/opc/log.txt
+echo $newip > curip
+curpfw=$(firewall-cmd --list-forward-ports)
+firewall-cmd --permanent --zone=public --remove-forward-port=$curpfw
+firewall-cmd --permanent --zone=public --add-forward-port=port=443:proto=tcp:toport=443:toaddr=$newip
+firewall-cmd --reload
+systemctl restart firewalld
+fi
