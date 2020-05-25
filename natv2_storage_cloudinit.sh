@@ -10,7 +10,7 @@ systemctl stop iptables
 #firewall-cmd --reload
 firewall-offline-cmd --zone=public --add-port=443/tcp 
 firewall-offline-cmd --zone=public --add-masquerade 
-firewall-offline-cmd --zone=public --add-forward-port=port=443:proto=tcp:toport=443:toaddr=134.70.43.252
+firewall-offline-cmd --zone=public --add-forward-port=port=443:proto=tcp:toport=443:toaddr=1.2.3.4
 systemctl restart firewalld
 
 
@@ -21,8 +21,8 @@ wget https://raw.githubusercontent.com/BaptisS/oci_nat_storage/master/natcheck.s
 chmod +x netmask.sh
 chmod +x natcheck.sh
 
-#echo "0 */12 * * * /home/opc/natcheck.sh" |crontab -
-echo "* * * * * /home/opc/natcheck.sh" |crontab -
+echo "0 */12 * * * /home/opc/natcheck.sh" |crontab -
+#echo "* * * * * /home/opc/natcheck.sh" |crontab -
 
 #firewall-cmd --permanent --zone=testing --add-rich-rule='rule family=ipv4 source address=192.168.1.0/24 masquerade'
 #firewall-cmd --permanent --zone=testing --add-rich-rule='rule family=ipv4 source address=192.168.1.0/24 forward-port port=22 protocol=tcp to-port=2222 to-addr=10.0.0.10'
