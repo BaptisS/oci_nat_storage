@@ -8,7 +8,6 @@ wget https://docs.cloud.oracle.com/iaas/tools/public_ip_ranges.json
 #Get current region name from Instance metadata. 
 vmmeta=$(curl -L http://169.254.169.254/opc/v1/instance/)
 cureg=$(echo $vmmeta | jq '.region')
-curegnoq=$(echo $vmmeta | jq -r '.region')
 
 #Retrieve OCI Object Storage endpoint address list for curent region  . 
 REGCIDR=$(cat public_ip_ranges.json | jq '.regions[] | select(.region == '$cureg')')
@@ -36,7 +35,8 @@ else
         curtime=$(date)
         echo $curtime "- Object Storage endpoint update detected" >> /home/opc/log.txt
 
-#Resolve object storage name to get fresh IP.  
+#Resolve object storage name to get fresh IP.
+curegnoq=$(echo $vmmeta | jq -r '.region')
 newip=$(dig +short objectstorage.$curegnoq.oraclecloud.com. | awk '{line = $0} END {print line}')
 echo The new Object Storage IP is : $newip >> /home/opc/log.txt
 echo $newip > newip
