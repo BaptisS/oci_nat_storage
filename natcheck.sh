@@ -1,10 +1,17 @@
 #!/bin/bash
 cd /home/opc/
 
-#Retrieve up-to-date OCI Object Storage endpoint address list for specific region (ie. eu-frankfurt-1) . 
+#Get up-to-date OCI Public IP addresses list. 
 rm -f public_ip_ranges.json
 wget https://docs.cloud.oracle.com/iaas/tools/public_ip_ranges.json
-REGCIDR=$(cat public_ip_ranges.json | jq '.regions[] | select(.region == "eu-frankfurt-1")')
+
+#Get current region name from Instance metadata. 
+vmmeta=$(curl -L http://169.254.169.254/opc/v1/instance/)
+cureg=$(echo $vmmeta | jq '.region')
+
+#Retrieve OCI Object Storage endpoint address list for curent region  . 
+REGCIDR=$(cat public_ip_ranges.json | jq '.regions[] | select(.region == '$cureg')')
+#REGCIDR=$(cat public_ip_ranges.json | jq '.regions[] | select(.region == "eu-frankfurt-1")')
 REGOBJCIDR=$(echo $REGCIDR | jq '.cidrs[] | select(.tags[] == "OBJECT_STORAGE") | .cidr')
 
 #Read current ip from file (/home/opc/curip) 
@@ -19,14 +26,16 @@ matchstatus=$(echo $?)
 if [ $matchstatus = 0 ]
 
 then
-#Current IP address is still in Object Storage CIDR. Do nothing.
+#Current IP address is still in Object Storage CIDR. Do nothing. (Just Log)
         curtime=$(date) 
         echo $curtime "- No change detected" >> /home/opc/log.txt
 
 else
-#Current Ip is not anymore in the curent Object Storage CIDR. Resolve object storage name to get fresh IP and update Firewalld configuration. 
+#Current Ip is not anymore in the curent Object Storage CIDR. 
         curtime=$(date)
         echo $curtime "- Object Storage endpoint update detected" >> /home/opc/log.txt
+
+#Resolve object storage name to get fresh IP.  
 newip=$(dig +short objectstorage.eu-frankfurt-1.oraclecloud.com. | awk '{line = $0} END {print line}')
 echo The new Object Storage IP is : $newip >> /home/opc/log.txt
 echo $newip > newip
@@ -35,14 +44,15 @@ echo New $newip >> /home/opc/log.txt
 echo $newip > curip
 localip=$(hostname -I | awk '{print $1}')
 
+#Update Firewalld configuration.
+
 #curpfw=$(firewall-cmd --list-forward-ports)
 #firewall-cmd --permanent --zone=public --remove-forward-port=$curpfw
-#currr=$(firewall-cmd --list-rich-rules)
 
 firewall-cmd --permanent --zone=public --remove-rich-rule=firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 destination address='$localip' forward-port port=443 protocol=tcp to-port=443 to-addr='$cur_ip'"
 #firewall-cmd --permanent --zone=public --add-forward-port=port=443:proto=tcp:toport=443:toaddr=$newip
-firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 destination address='$localip' forward-port port=443 protocol=tcp to-port=443 to-addr='$newip'"
 
+firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 destination address='$localip' forward-port port=443 protocol=tcp to-port=443 to-addr='$newip'"
 firewall-cmd --reload
 systemctl restart firewalld
 fi
