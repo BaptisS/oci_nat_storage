@@ -50,7 +50,7 @@ localip=$(hostname -I | awk '{print $1}')
 #curpfw=$(firewall-cmd --list-forward-ports)
 #firewall-cmd --permanent --zone=public --remove-forward-port=$curpfw
 
-firewall-cmd --permanent --zone=public --remove-rich-rule=firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 destination address='$localip' forward-port port=443 protocol=tcp to-port=443 to-addr='$cur_ip'"
+firewall-cmd --permanent --zone=public --remove-rich-rule="rule family=ipv4 destination address='$localip' forward-port port=443 protocol=tcp to-port=443 to-addr='$cur_ip'"
 #firewall-cmd --permanent --zone=public --add-forward-port=port=443:proto=tcp:toport=443:toaddr=$newip
 
 firewall-cmd --permanent --zone=public --add-rich-rule="rule family=ipv4 destination address='$localip' forward-port port=443 protocol=tcp to-port=443 to-addr='$newip'"
